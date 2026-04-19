@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "6447421726",
+    "project_id": "evote2-68769",
+    "storage_bucket": "evote2-68769.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:6447421726:android:f64167b625fc52900dd10f",
+        "android_client_info": {
+          "package_name": "com.banty.evote"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMLZF2UHLU_fJ04VX5JiZ-60FegBbRTKM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:6447421726:android:bcc9884198c4a8160dd10f",
+        "android_client_info": {
+          "package_name": "com.example.evote_current"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMLZF2UHLU_fJ04VX5JiZ-60FegBbRTKM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
