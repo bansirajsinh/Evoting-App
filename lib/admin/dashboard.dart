@@ -7,8 +7,8 @@ import '../user/login.dart';
 import 'manage_elections.dart';
 import 'manage_candidates.dart';
 import 'manage_voters.dart';
+import 'manage_parties.dart';
 import 'results.dart';
-import '../user/login_new.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -74,7 +74,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => LoginPageNew()),
+        MaterialPageRoute(builder: (_) => const LoginPage()),
         (route) => false,
       );
     }
@@ -90,21 +90,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(
-              _blockchainConnected ? Icons.link : Icons.link_off,
-              color: _blockchainConnected ? Colors.greenAccent : Colors.red,
-            ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(_blockchainConnected
-                      ? 'Blockchain: Connected'
-                      : 'Blockchain: Disconnected'),
-                ),
-              );
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
@@ -322,7 +307,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               _buildMenuCard(
                 icon: Icons.how_to_vote,
                 title: 'Manage Elections',
-                subtitle: 'Create, edit, and manage elections',
+                subtitle: 'Create and schedule elections',
                 color: AppColors.primary,
                 onTap: () => Navigator.push(
                   context,
@@ -330,9 +315,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
               ),
               _buildMenuCard(
+                icon: Icons.flag,
+                title: 'Manage Parties',
+                subtitle: 'Register political parties and symbols',
+                color: Colors.teal,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ManagePartiesPage()),
+                ),
+              ),
+              _buildMenuCard(
                 icon: Icons.person_pin,
                 title: 'Manage Candidates',
-                subtitle: 'Add and manage election candidates',
+                subtitle: 'Add and verify candidates',
                 color: Colors.orange,
                 onTap: () => Navigator.push(
                   context,
@@ -342,7 +337,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               _buildMenuCard(
                 icon: Icons.people,
                 title: 'Manage Voters',
-                subtitle: 'View and manage voter registrations',
+                subtitle: 'Verify voter eligibility',
                 color: Colors.blue,
                 onTap: () => Navigator.push(
                   context,
@@ -352,7 +347,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               _buildMenuCard(
                 icon: Icons.bar_chart,
                 title: 'View Results',
-                subtitle: 'View election results and analytics',
+                subtitle: 'Election analytics and results',
                 color: Colors.purple,
                 onTap: () => Navigator.push(
                   context,

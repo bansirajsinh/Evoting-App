@@ -8,7 +8,6 @@ import '../models/election.dart';
 import '../models/candidate.dart';
 import '../models/vote.dart';
 
-
 class VotingPage extends StatefulWidget {
   final List<Election> elections;
 
@@ -33,7 +32,6 @@ class _VotingPageState extends State<VotingPage> {
   void didUpdateWidget(covariant VotingPage oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // if elections list changes
     if (widget.elections != oldWidget.elections &&
         widget.elections.isNotEmpty) {
       _selectElection(widget.elections.first);
@@ -50,11 +48,9 @@ class _VotingPageState extends State<VotingPage> {
   }
 
   Future<void> _selectElection(Election election) async {
-
     debugPrint('\x1B[32m'
-    'lib/user/voting.dart: _selectElection() executed'
-    '\x1B[0m');
-
+        'lib/user/voting.dart: _selectElection() executed'
+        '\x1B[0m');
 
     setState(() {
       _selectedElection = election;
@@ -65,36 +61,26 @@ class _VotingPageState extends State<VotingPage> {
     try {
       final user = _authService.currentUser;
 
-
-
       if (user != null) {
-
         final voterId = user.voterId;
-
-
-        _hasVoted = await _firestoreService.hasVoted(voterId, election.id);
-
+        _hasVoted = await _firestoreService.hasVoted(voterId, election.uid);
+        
+        // DISTRICT ELECTION FIX: Filter candidates by user's ward
+        final candidates = await _firestoreService.getCandidatesByWard(election.uid, user.ward);
+        setState(() => _candidates = candidates);
+      } else {
+        final candidates = await _firestoreService.getCandidates(election.uid);
+        setState(() => _candidates = candidates);
       }
-      
-      final candidates = await _firestoreService.getCandidates(election.id);
-      setState(() => _candidates = candidates);
-
     } catch (e) {
-
       debugPrint('Error loading candidates: $e');
-
     } finally {
-
       setState(() => _isLoading = false);
-
     }
   }
 
   Future<void> _castVote() async {
-    
-    debugPrint('\x1B[32m'
-    'lib/user/voting.dart: _castVote() executed'
-    '\x1B[0m');
+    debugPrint('\x1B[32m''lib/user/voting.dart: _castVote() executed''\x1B[0m');
 
     if (_selectedCandidate == null || _selectedElection == null) return;
 
@@ -104,78 +90,56 @@ class _VotingPageState extends State<VotingPage> {
     setState(() => _isLoading = true);
 
     try {
-
       final user = _authService.currentUser;
-
-      final voterId;
-
-
-        voterId = user?.voterId;
-
-
       if (user == null) throw Exception('User not logged in');
-
+      
+      final voterId = user.voterId;
       final voterHash = _blockchainService.generateVoterHash(voterId);
-
       final candidateHash = _blockchainService.generateCandidateHash(_selectedCandidate!.id);
 
       final transaction = await _blockchainService.castVote(
         voterHash: voterHash,
         candidateHash: candidateHash,
-        electionId: _selectedElection!.id,
+        electionId: _selectedElection!.uid,
       );
 
-    if (transaction != null) {
+      if (transaction != null) {
+        final voteHash = _blockchainService.generateVoteHash(
+          voterId: user.voterId,
+          candidateId: _selectedCandidate!.id,
+          electionId: _selectedElection!.uid,
+          timestamp: DateTime.now(),
+        );
 
-
-
-
-    final voteHash = _blockchainService.generateVoteHash(
-      voterId: user.voterId,
-      candidateId: _selectedCandidate!.id,
-      electionId: _selectedElection!.id,
-      timestamp: DateTime.now(),
-    );
-
-  await _firestoreService.recordVote(Vote(
-    id: '',
-    electionId: _selectedElection!.id,
-    voterId: user.voterId,
-    voterHash: voterHash,
-    candidateId: _selectedCandidate!.id,
-    voteHash: voteHash,
-    transactionHash: transaction.transactionHash,
-    timestamp: DateTime.now(),
-
-    blockHash: transaction.blockHash,
-    previousBlockHash: "", // remove blockchain linking
-    blockNumber: transaction.blockNumber,
-    accountAddress: transaction.from,
-  ));
-
-
-
-
-
-
-
-
-
-    if (!mounted) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ConfirmationPage(
-          election: _selectedElection!,
-          candidate: _selectedCandidate!,
+        await _firestoreService.recordVote(Vote(
+          id: '',
+          electionId: _selectedElection!.uid,
+          voterId: user.voterId,
+          voterHash: voterHash,
+          candidateId: _selectedCandidate!.id,
+          voteHash: voteHash,
           transactionHash: transaction.transactionHash,
+          timestamp: DateTime.now(),
+          blockHash: transaction.blockHash,
+          previousBlockHash: "",
           blockNumber: transaction.blockNumber,
-        ),
-      ),
-    );
-    }
+          accountAddress: transaction.from,
+        ));
 
+        if (!mounted) return;
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ConfirmationPage(
+              election: _selectedElection!,
+              candidate: _selectedCandidate!,
+              transactionHash: transaction.transactionHash,
+              blockNumber: transaction.blockNumber,
+            ),
+          ),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -189,73 +153,76 @@ class _VotingPageState extends State<VotingPage> {
   }
 
   Future<bool> _showConfirmationDialog() async {
-    debugPrint('\x1B[32m'
-    'lib/user/voting.dart: _showConfirmationDialog() executed'
-    '\x1B[0m');
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Your Vote'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('You are about to vote for:'),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    _selectedCandidate!.symbol,
-                    style: const TextStyle(fontSize: 32),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Confirm Your Vote'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('You are voting for Ward: ${_authService.currentUser?.ward ?? "N/A"}'),
+                const SizedBox(height: 8),
+                const Text('Selected Candidate:'),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedCandidate!.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: AppColors.primary,
+                        child: Text(
+                          _selectedCandidate!.candidateName.isNotEmpty ? _selectedCandidate!.candidateName[0] : '?',
+                          style: const TextStyle(color: Colors.white),
                         ),
-                        Text(
-                          _selectedCandidate!.party,
-                          style: AppTextStyles.caption,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedCandidate!.candidateName,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              _selectedCandidate!.partyId,
+                              style: AppTextStyles.caption,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'This action cannot be undone. Your vote will be recorded on the blockchain.',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'This action cannot be undone. Your vote will be recorded on the blockchain.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Confirm Vote'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Confirm Vote'),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   @override
@@ -312,7 +279,6 @@ class _VotingPageState extends State<VotingPage> {
               },
             ),
           ),
-
         if (_hasVoted)
           Container(
             margin: const EdgeInsets.all(AppDimens.paddingMedium),
@@ -335,13 +301,12 @@ class _VotingPageState extends State<VotingPage> {
               ],
             ),
           ),
-
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _candidates.isEmpty
-                  ? const Center(
-                      child: Text('No candidates found for this election'),
+                  ? Center(
+                      child: Text('No candidates found for Ward: ${_authService.currentUser?.ward ?? "N/A"}'),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.all(AppDimens.paddingMedium),
@@ -378,18 +343,12 @@ class _VotingPageState extends State<VotingPage> {
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
                                   children: [
-                                    Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primaryLight.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          candidate.symbol,
-                                          style: const TextStyle(fontSize: 32),
-                                        ),
+                                    CircleAvatar(
+                                      radius: 30,
+                                      backgroundColor: AppColors.primaryLight.withOpacity(0.1),
+                                      child: Text(
+                                        candidate.candidateName.isNotEmpty ? candidate.candidateName[0] : '?',
+                                        style: const TextStyle(fontSize: 24, color: AppColors.primary),
                                       ),
                                     ),
                                     const SizedBox(width: 16),
@@ -398,26 +357,21 @@ class _VotingPageState extends State<VotingPage> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            candidate.name,
+                                            candidate.candidateName,
                                             style: AppTextStyles.heading3,
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            candidate.party,
+                                            candidate.partyId,
                                             style: TextStyle(
                                               color: AppColors.primary,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
-                                          if (candidate.manifesto != null) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              candidate.manifesto!,
-                                              style: AppTextStyles.caption,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
+                                          Text(
+                                            'Ward: ${candidate.ward}',
+                                            style: AppTextStyles.caption,
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -452,7 +406,6 @@ class _VotingPageState extends State<VotingPage> {
                       },
                     ),
         ),
-
         if (!_hasVoted && _selectedCandidate != null)
           Container(
             padding: const EdgeInsets.all(AppDimens.paddingMedium),
@@ -491,8 +444,6 @@ class _VotingPageState extends State<VotingPage> {
   }
 
   void debug() {
-      debugPrint('\x1B[34m'
-      'lib/user/voting.dart: executed'
-      '\x1B[0m');
+    debugPrint('\x1B[34m''lib/user/voting.dart: executed''\x1B[0m');
   }
 }

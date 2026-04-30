@@ -95,7 +95,7 @@ class _ConfirmationPageState extends State<ConfirmationPage>
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.success.withOpacity(0.4),
+                        color: AppColors.success.withValues(alpha: 0.4),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
@@ -138,7 +138,7 @@ class _ConfirmationPageState extends State<ConfirmationPage>
                         borderRadius: BorderRadius.circular(AppDimens.borderRadiusLarge),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 20,
                             offset: const Offset(0, 5),
                           ),
@@ -152,12 +152,12 @@ class _ConfirmationPageState extends State<ConfirmationPage>
                                 width: 60,
                                 height: 60,
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryLight.withOpacity(0.1),
+                                  color: AppColors.primaryLight.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Center(
                                   child: Text(
-                                    widget.candidate.symbol,
+                                    widget.candidate.partySymbol,
                                     style: const TextStyle(fontSize: 32),
                                   ),
                                 ),
@@ -168,12 +168,12 @@ class _ConfirmationPageState extends State<ConfirmationPage>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      widget.candidate.name,
+                                      widget.candidate.candidateName,
                                       style: AppTextStyles.heading3,
                                     ),
                                     Text(
-                                      widget.candidate.party,
-                                      style: TextStyle(
+                                      widget.candidate.partyId,
+                                      style: const TextStyle(
                                         color: AppColors.primary,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -189,6 +189,8 @@ class _ConfirmationPageState extends State<ConfirmationPage>
                           _buildInfoRow('Election', widget.election.title),
                           const SizedBox(height: 12),
                           _buildInfoRow('Block Number', '#${widget.blockNumber}'),
+                          const SizedBox(height: 12),
+                          _buildInfoRow('Ward', widget.candidate.ward),
                         ],
                       ),
                     ),
@@ -197,10 +199,10 @@ class _ConfirmationPageState extends State<ConfirmationPage>
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryLight.withOpacity(0.1),
+                        color: AppColors.primaryLight.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppDimens.borderRadius),
                         border: Border.all(
-                          color: AppColors.primary.withOpacity(0.3),
+                          color: AppColors.primary.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Column(
@@ -254,8 +256,8 @@ class _ConfirmationPageState extends State<ConfirmationPage>
                       ),
                       child: Column(
                         children: [
-                          Row(
-                            children: const [
+                          const Row(
+                            children: [
                               Icon(Icons.verified, color: AppColors.success, size: 20),
                               SizedBox(width: 8),
                               Text(

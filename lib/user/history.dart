@@ -8,7 +8,6 @@ import '../models/candidate.dart';
 import '../models/vote.dart';
 import '../models/election.dart';
 
-
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
@@ -22,8 +21,8 @@ class _HistoryPageState extends State<HistoryPage> {
   final _blockchainService = BlockchainService();
 
   List<Vote> _votes = [];
-  Map<String, Election> _elections = {};
-  Map<String, Candidate> _candidates = {};
+  final Map<String, Election> _elections = {};
+  final Map<String, Candidate> _candidates = {};
   bool _isLoading = true;
 
   @override
@@ -34,11 +33,9 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _loadHistory() async {
+    debugPrint('\x1B[32m' 'lib/user/history.dart: _loadHistory: executed' '\x1B[0m');
 
-      debugPrint('\x1B[32m'
-      'lib/user/history.dart:  _loadHistory: executed'
-      '\x1B[0m');
-
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
@@ -46,10 +43,6 @@ class _HistoryPageState extends State<HistoryPage> {
       if (user == null) return;
 
       final votes = await _firestoreService.getVotingHistory(user.voterId);
-
-      debugPrint('\x1B[37m'
-      'lib/user/history.dart:  total votes: ${votes.length}, and votes are ${votes}'
-      '\x1B[0m'); 
 
       for (var vote in votes) {
         if (!_elections.containsKey(vote.electionId)) {
@@ -59,28 +52,29 @@ class _HistoryPageState extends State<HistoryPage> {
           }
         }
 
-        final candidates = await _firestoreService.getCandidates(vote.electionId);
-        for (var candidate in candidates) {
-          _candidates[candidate.id] = candidate;
+        if (!_candidates.containsKey(vote.candidateId)) {
+           final candidates = await _firestoreService.getCandidates(vote.electionId);
+           for (var candidate in candidates) {
+             _candidates[candidate.id] = candidate;
+           }
         }
       }
 
-      setState(() {
-        _votes = votes;
-        _votes.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      });
+      if (mounted) {
+        setState(() {
+          _votes = votes;
+          _votes.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        });
+      }
     } catch (e) {
       debugPrint('Error loading history: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _verifyVote(Vote vote) async {
-
-    debugPrint('\x1B[32m'
-      'lib/user/history.dart:  _verifyVote: executed'
-      '\x1B[0m');
+    debugPrint('\x1B[32m' 'lib/user/history.dart: _verifyVote: executed' '\x1B[0m');
 
     showDialog(
       context: context,
@@ -93,6 +87,7 @@ class _HistoryPageState extends State<HistoryPage> {
         vote.transactionHash ?? '',
       );
 
+      if (!mounted) return;
       Navigator.pop(context);
 
       showDialog(
@@ -118,7 +113,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     : 'Could not verify the vote on the blockchain.',
               ),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Transaction Hash:',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               ),
@@ -138,13 +133,15 @@ class _HistoryPageState extends State<HistoryPage> {
         ),
       );
     } catch (e) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Verification error: $e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification error: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -162,7 +159,7 @@ class _HistoryPageState extends State<HistoryPage> {
             Icon(
               Icons.history,
               size: 80,
-              color: AppColors.textSecondary.withOpacity(0.5),
+              color: AppColors.textSecondary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -197,7 +194,7 @@ class _HistoryPageState extends State<HistoryPage> {
               borderRadius: BorderRadius.circular(AppDimens.borderRadiusLarge),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -208,7 +205,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.05),
+                    color: AppColors.primary.withValues(alpha: 0.05),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(AppDimens.borderRadiusLarge),
                     ),
@@ -218,7 +215,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
@@ -239,7 +236,7 @@ class _HistoryPageState extends State<HistoryPage> {
                               ),
                             ),
                             Text(
-                              election?.type.toUpperCase() ?? '',
+                              election?.electionType.toUpperCase() ?? '',
                               style: AppTextStyles.caption,
                             ),
                           ],
@@ -251,12 +248,12 @@ class _HistoryPageState extends State<HistoryPage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.success.withOpacity(0.1),
+                          color: AppColors.success.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
+                          children: [
                             Icon(
                               Icons.check_circle,
                               size: 14,
@@ -289,12 +286,12 @@ class _HistoryPageState extends State<HistoryPage> {
                               width: 50,
                               height: 50,
                               decoration: BoxDecoration(
-                                color: AppColors.primaryLight.withOpacity(0.1),
+                                color: AppColors.primaryLight.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Center(
                                 child: Text(
-                                  candidate.symbol,
+                                  candidate.partySymbol,
                                   style: const TextStyle(fontSize: 24),
                                 ),
                               ),
@@ -309,15 +306,15 @@ class _HistoryPageState extends State<HistoryPage> {
                                     style: AppTextStyles.caption,
                                   ),
                                   Text(
-                                    candidate.name,
+                                    candidate.candidateName,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
                                     ),
                                   ),
                                   Text(
-                                    candidate.party,
-                                    style: TextStyle(
+                                    candidate.partyId,
+                                    style: const TextStyle(
                                       color: AppColors.primary,
                                       fontSize: 13,
                                     ),
@@ -420,14 +417,12 @@ class _HistoryPageState extends State<HistoryPage> {
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-    final hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
+    final hour = dateTime.hour > 12 ? dateTime.hour - 12 : (dateTime.hour == 0 ? 12 : dateTime.hour);
     final amPm = dateTime.hour >= 12 ? 'PM' : 'AM';
     return '${dateTime.day} ${months[dateTime.month - 1]}, ${dateTime.year} at ${hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')} $amPm';
   }
 
   void debug() {
-      debugPrint('\x1B[34m'
-      'lib/user/history.dart: executed'
-      '\x1B[0m');
+    debugPrint('\x1B[34m' 'lib/user/history.dart: executed' '\x1B[0m');
   }
 }

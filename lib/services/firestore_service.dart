@@ -2,226 +2,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/widgets.dart';
 import '../models/candidate.dart';
 import '../models/vote.dart';
-import '../models/voter_profile.dart';
+import '../models/app_user.dart';
 import '../models/election.dart';
+import '../models/party.dart';
 import 'blockchain_service.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final  _blockchainService = BlockchainService();
+  final _blockchainService = BlockchainService();
 
-
-
-Future<Map<String, dynamic>> getHostCredentials() async {
-  final doc = await FirebaseFirestore.instance
-      .collection('hostCredentials')
-      .doc('host')
-      .get();
-
-  if (!doc.exists) {
-    throw Exception("Host credentials not found");
+  Future<Map<String, dynamic>> getHostCredentials() async {
+    final doc = await _db.collection('hostCredentials').doc('host').get();
+    if (!doc.exists) throw Exception("Host credentials not found");
+    return doc.data()!;
   }
 
-  return doc.data()!;
-}
-
-Stream<Map<String, dynamic>> getHostCredentialsStream() {
-  return _db.collection('hostCredentials')
-      .doc('host')
-      .snapshots()
-      .map((doc) {
-    if (!doc.exists) {
-      throw Exception("Host credentials not found");
-    }
-    return doc.data() ?? {};
-  });
-}
-
-
-Stream<int> streamTotalElections() {
-  return _db.collection('elections')
-      .snapshots()
-      .map((snap) => snap.size);
-}
-
-Stream<int> streamActiveElections() {
-  return _db.collection('elections')
-      .where('status', isEqualTo: 'active')
-      .snapshots()
-      .map((snap) => snap.size);
-}
-
-Stream<int> streamTotalVoters() {
-  return _db.collection('voters')
-      .snapshots()
-      .map((snap) => snap.size);
-}
-
-Stream<int> streamTotalVotes() {
-  return _db.collection('votes')
-      .snapshots()
-      .map((snap) => snap.size);
-}
-
-
-//in use!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  Future<List<Election>> getElections() async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getElections() executed'
-    '\x1B[0m');
-    final snap = await _db.collection('elections').get();
-    return snap.docs.map((d) => Election.fromFirestore(d)).toList();
-  }
-//in use
-  Stream<List<Election>> getElectionsStream() {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getElectionsStream() executed'
-    '\x1B[0m');
-    return _db.collection('elections').snapshots().map(
-            (s) => s.docs.map((d) => Election.fromFirestore(d)).toList());
-  }
-//in use
-  Future<List<Election>> getActiveElections() async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getActiveElections() executed'
-    '\x1B[0m');
-    
-    final snap = await _db
-        .collection('elections')
-        .where('status', isEqualTo: 'active')
-        .get();
-    return snap.docs.map((d) => Election.fromFirestore(d)).toList();
-  }
-//in use
-  Future<List<Election>> getUpcomingElections() async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getUpcomingElections() executed'
-    '\x1B[0m');
-    final snap = await _db
-        .collection('elections')
-        .where('status', isEqualTo: 'upcoming')
-        .get();
-    return snap.docs.map((d) => Election.fromFirestore(d)).toList();
-  }
-//in use
-  Future<Election> getElectionById(String id) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getElectionById() executed'
-    '\x1B[0m');
-    final doc = await _db.collection('elections').doc(id).get();
-    return Election.fromFirestore(doc);
-  }
-//in use
-  Future<void> createElection(Election election) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: createElection() executed'
-    '\x1B[0m');
-
-    debugPrint("Creating election in BOTH systems...");
-
-    // 1. Firebase
-    final docRef = await _db.collection('elections').add(election.toMap());
-
-
-    await docRef.update({
-      "contractAddress": _blockchainService.contractAddress
-    });
-
-
-  final electionId = docRef.id;
-
-     debugPrint('\x1B[31m'
-    'lib/services/firestore_service.dart: createElection(): electionID: ${electionId}'
-    '\x1B[0m');
-
-
-  // 2. Blockchain
-  await _blockchainService.createElectionOnBlockchain(electionId);
-
-
- debugPrint("✅ Synced Firebase + Blockchain");
-
-
-}
-//in use
-  Future<void> updateElection(Election election) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: updateElection() executed'
-    '\x1B[0m');
-    await _db.collection('elections').doc(election.id).update(election.toMap());
-  }
-//in use
-  Future<void> deleteElection(String id) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: deleteElection() executed'
-    '\x1B[0m');
-    await _db.collection('elections').doc(id).delete();
-  }
-//in use
-  Future<List<Candidate>> getCandidates(String electionId) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getCandidates() executed'
-    '\x1B[0m');
-    final snap = await _db
-        .collection('candidates')
-        .where('electionId', isEqualTo: electionId)
-        .get();
-    return snap.docs.map((d) => Candidate.fromFirestore(d, electionId)).toList();
-  }
-//in use
-  Stream<List<Candidate>> getCandidatesStream(String electionId) {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getCandidatesStream() executed'
-    '\x1B[0m');
-    return _db
-        .collection('candidates')
-        .where('electionId', isEqualTo: electionId)
-        .snapshots()
-        .map((s) => s.docs.map((d) => Candidate.fromFirestore(d, electionId)).toList());
-  }
-//in use
-  Future<void> updateCandidate(String id, Map<String, dynamic> data) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: updateCandidate() executed'
-    '\x1B[0m');
-    await _db.collection('candidates').doc(id).update(data);
-  }
-//in use
-  Future<void> addCandidate(String electionId, Map<String, dynamic> data) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: addCandidate() executed'
-    '\x1B[0m');
-    await _db.collection('candidates').add({
-      ...data,
-      'electionId': electionId,
-    });
-  }
-//in use
-  Future<void> deleteCandidate(String id) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: deleteCandidate() executed'
-    '\x1B[0m');
-    await _db.collection('candidates').doc(id).delete();
-  }
-//in use
-  Future<bool> hasVoted(String voterId, String electionId) async {
-
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: hasVoted() executed'
-    '\x1B[0m');
-
-
-    final snap = await _db
-        .collection('votes')
-        .where('voterUid', isEqualTo: voterId)
-        .where('electionId', isEqualTo: electionId)
-        .get();
-
-    return snap.docs.isNotEmpty;
-
-  }
-
-  Future<bool> isAlreadyRegisteredVoterId(String voterId) async{
+    Future<bool> isAlreadyRegisteredVoterId(String voterId) async{
 
     debugPrint('\x1B[32m'
     'lib/services/firestore_service.dart: alreadyRegisteredVoterId() executed'
@@ -279,92 +75,171 @@ Stream<int> streamTotalVotes() {
   }
 
 
-//in use
-  Future<void> recordVote(Vote vote) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: recordVote() executed'
-    '\x1B[0m');
-    await _db.collection('votes').add(vote.toMap());
+  Stream<Map<String, dynamic>> getHostCredentialsStream() {
+    return _db.collection('hostCredentials').doc('host').snapshots().map((doc) => doc.data() ?? {});
+  }
 
+  Stream<int> streamTotalElections() => _db.collection('elections').snapshots().map((snap) => snap.size);
+  Stream<int> streamActiveElections() => _db.collection('elections').where('status', isEqualTo: 'active').snapshots().map((snap) => snap.size);
+  Stream<int> streamTotalVoters() => _db.collection('users').snapshots().map((snap) => snap.size);
+  Stream<int> streamTotalVotes() => _db.collection('votes').snapshots().map((snap) => snap.size);
+
+  Future<List<Election>> getElections() async {
+    final snap = await _db.collection('elections').get();
+    return snap.docs.map((d) => Election.fromFirestore(d)).toList();
+  }
+
+  Stream<List<Election>> getElectionsStream() {
+    return _db.collection('elections').snapshots().map(
+        (s) => s.docs.map((d) => Election.fromFirestore(d)).toList());
+  }
+
+  Future<Election?> getElectionById(String id) async {
+    final doc = await _db.collection('elections').doc(id).get();
+    if (!doc.exists) return null;
+    return Election.fromFirestore(doc);
+  }
+
+  Future<void> createElection(Election election) async {
+    try {
+      await _db.collection('elections').doc(election.electionId).set(election.toMap());
+      await _blockchainService.createElectionOnBlockchain(election.electionId);
+    } catch (err) {
+      debugPrint('Error creating election: $err');
+      rethrow;
+    }
+  }
+
+  Future<void> updateElection(Election election) async {
+    await _db.collection('elections').doc(election.electionId).update(election.toMap());
+  }
+
+  Future<void> deleteElection(String id) async {
+    await _db.collection('elections').doc(id).delete();
+  }
+
+  // Candidates
+  Stream<List<Candidate>> getCandidatesStream(String electionId) {
+    return _db.collection('candidates')
+        .where('electionId', isEqualTo: electionId)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Candidate.fromFirestore(d, electionId)).toList());
+  }
+
+  Future<List<Candidate>> getCandidates(String electionId) async {
+    final snap = await _db.collection('candidates')
+        .where('electionId', isEqualTo: electionId)
+        .get();
+    return snap.docs.map((d) => Candidate.fromFirestore(d, electionId)).toList();
+  }
+
+  Future<void> addCandidate(String electionId, Map<String, dynamic> data) async {
+    await _db.collection('candidates').add({
+      ...data,
+      'electionId': electionId,
+      'createdDate': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateCandidate(String id, Map<String, dynamic> data) async {
+    await _db.collection('candidates').doc(id).update(data);
+  }
+
+  Future<void> deleteCandidate(String id) async {
+    await _db.collection('candidates').doc(id).delete();
+  }
+
+  Future<List<Candidate>> getCandidatesByWard(String electionId, String ward) async {
+    final snap = await _db.collection('candidates')
+        .where('electionId', isEqualTo: electionId)
+        .where('ward', isEqualTo: ward)
+        .where('nomineeStatus', isEqualTo: 'Eligible')
+        .get();
+    return snap.docs.map((d) => Candidate.fromFirestore(d, electionId)).toList();
+  }
+
+  Stream<Map<String, int>> getElectionResultsStream(String electionId) {
+    return _db.collection('candidates')
+        .where('electionId', isEqualTo: electionId)
+        .snapshots()
+        .map((snapshot) {
+          final results = <String, int>{};
+          for (var doc in snapshot.docs) {
+            results[doc.id] = (doc.data()['voteCount'] ?? 0) as int;
+          }
+          return results;
+        });
+  }
+
+  // Voter Verification
+  Stream<List<AppUser>> getAllVotersStream() {
+    return _db.collection('users')
+        .where('role', isEqualTo: 'voter')
+        .snapshots()
+        .map((s) => s.docs.map((d) => AppUser.fromMap(d.id, d.data())).toList());
+  }
+
+  Future<void> updateVoterVerification(String uid, String status, String adminId) async {
+    await _db.collection('users').doc(uid).update({
+      'verificationStatus': status,
+      'verificationDate': FieldValue.serverTimestamp(),
+      'verifiedBy': adminId,
+      'isEligible': status == 'Verified',
+    });
+  }
+
+  // Parties
+  Stream<List<Party>> getPartiesStream() {
+    return _db.collection('parties').snapshots().map(
+        (s) => s.docs.map((d) => Party.fromFirestore(d)).toList());
+  }
+
+  Future<List<Party>> getParties() async {
+    final snap = await _db.collection('parties').get();
+    return snap.docs.map((d) => Party.fromFirestore(d)).toList();
+  }
+
+  Future<void> createParty(Party party) async {
+    await _db.collection('parties').doc(party.partyId).set(party.toMap());
+  }
+
+  Future<void> updateParty(String id, Map<String, dynamic> data) async {
+    await _db.collection('parties').doc(id).update(data);
+  }
+
+  Future<void> deleteParty(String id) async {
+    await _db.collection('parties').doc(id).delete();
+  }
+
+  // Voting
+  Future<bool> hasVoted(String voterId, String electionId) async {
+    final snap = await _db.collection('votes')
+        .where('voterUid', isEqualTo: voterId) 
+        .where('electionId', isEqualTo: electionId)
+        .get();
+    return snap.docs.isNotEmpty;
+  }
+
+  Future<void> recordVote(Vote vote) async {
+    await _db.collection('votes').add(vote.toMap());
     await _db.collection('candidates').doc(vote.candidateId).update({
       'voteCount': FieldValue.increment(1),
     });
   }
-//in use
-  Future<List<Vote>> getVotingHistory(String userId) async {
 
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getVotingHistory() executed'
-    '\x1B[0m');
-
-    final snap = await _db
-        .collection('votes')
-        .where('voterUid', isEqualTo: userId)
+  Future<List<Vote>> getVotingHistory(String voterId) async {
+    final snap = await _db.collection('votes')
+        .where('voterUid', isEqualTo: voterId)
         .get();
-
-    // final snap = await _db.collection('votes').get();
-    // print("Total docs: ${snap.docs.length}");
-        print('\x1b[36m'"lib/services/firestore_service.dart: getVotingHistory(): User ID: ${userId}"'\x1b[0m');
-
-
     return snap.docs.map((d) => Vote.fromFirestore(d)).toList();
   }
-//in use
-  Future<void> updateVoterEligibility(String id, bool isEligible) async {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: updateVoterEligibility() executed'
-    '\x1B[0m');
-    await _db.collection('users').doc(id).update({
-      'isEligible': isEligible,
+
+  Future<void> markCandidateEligible(String id, bool eligible, {String? reason}) async {
+    await _db.collection('candidates').doc(id).update({
+      'nomineeStatus': eligible ? 'Eligible' : 'Ineligible',
+      'nominationFormStatus': eligible ? 'Accepted' : 'Rejected',
+      if (reason != null) 'disqualificationReason': reason,
+      'status': eligible ? 'Active' : 'Inactive',
     });
   }
-//in use
-  Stream<List<VoterProfile>> getAllVotersStream() {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getAllVotersStream() executed'
-    '\x1B[0m');
-    return _db.collection('users').snapshots().map(
-            (s) => s.docs.map((d) => VoterProfile.fromFirestore(d)).toList());
-  }
-//in use
-  Stream<Map<String, int>> getElectionResultsStream(String electionId) {
-   debugPrint('\x1B[32m'
-    'lib/services/firestore_service.dart: getElectionResultsStream() executed'
-    '\x1B[0m');
-    return _db
-        .collection('votes')
-        .where('electionId', isEqualTo: electionId)
-        .snapshots()
-        .map((snapshot) {
-      final Map<String, int> results = {};
-      try{
-        for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final candidateId = data['candidateId'] as String? ?? '';
-        if (candidateId.isNotEmpty) {
-          results[candidateId] = (results[candidateId] ?? 0) + 1;
-        }
-      }
-      }catch(err){
-        print(err);
-      }
-      return results;
-    });
-  }
-//in use need debug call
-  Future<int> getTotalElections() async =>
-      (await _db.collection('elections').get()).size;
-//in use need debug call
-  Future<int> getActiveElectionsCount() async =>
-      (await _db
-          .collection('elections')
-          .where('status', isEqualTo: 'active')
-          .get())
-          .size;
-//in use need debug call
-  Future<int> getTotalVoters() async =>
-      (await _db.collection('voters').get()).size;
-//in use need debug call
-  Future<int> getTotalVotes() async =>
-      (await _db.collection('votes').get()).size;
 }

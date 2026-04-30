@@ -3,7 +3,7 @@ import '../utils/constants.dart';
 import '../services/firestore_service.dart';
 import '../models/election.dart';
 import '../models/candidate.dart';
-
+import '../models/party.dart';
 
 class ManageCandidatesPage extends StatefulWidget {
   const ManageCandidatesPage({super.key});
@@ -17,126 +17,157 @@ class _ManageCandidatesPageState extends State<ManageCandidatesPage> {
 
   List<Election> _elections = [];
   Election? _selectedElection;
-
-
-
-  final List<String> _symbols = [
-    '🌸','✋','🌾','🏠','⭐','🌻','🔔','🎯','🌈','🦋'
-  ];
+  List<Party> _parties = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadElections();
+    _loadInitialData();
     debug();
   }
 
-  Future<void> _loadElections() async {
-    debugPrint('\x1B[32m'
-        'lib/admin/manage_candidates.dart: _loadElections() executed'
-        '\x1B[0m');
-
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
     try {
       final elections = await _firestoreService.getElections();
+      final parties = await _firestoreService.getParties();
 
       setState(() {
         _elections = elections;
+        _parties = parties;
 
-        // ✅ auto select first election
         if (elections.isNotEmpty) {
           _selectedElection = elections.first;
         }
       });
-
     } catch (e) {
-      debugPrint('Error loading elections: $e');
+      debugPrint('Error loading initial data: $e');
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
-
-  // FIX: Changed parameter type from Map<String, dynamic>? to Candidate?
   void _showAddEditDialog([Candidate? candidate]) {
     debugPrint('\x1B[32m'
     'lib/admin/manage_candidates.dart: _showAddEditDialog() executed'
     '\x1B[0m');
     final isEditing = candidate != null;
 
-    // FIX: Access candidate properties directly instead of map syntax
-    final nameController =
-    TextEditingController(text: candidate?.name ?? '');
-    final partyController =
-    TextEditingController(text: candidate?.party ?? '');
-    final manifestoController =
-    TextEditingController(text: candidate?.manifesto ?? '');
+    final nameController = TextEditingController(text: candidate?.candidateName ?? '');
+    final wardController = TextEditingController(text: candidate?.ward ?? '');
+    final phoneController = TextEditingController(text: candidate?.phone ?? '');
+    final emailController = TextEditingController(text: candidate?.email ?? '');
+    final aadharController = TextEditingController(text: candidate?.aadharNumber ?? '');
+    final panController = TextEditingController(text: candidate?.panNumber ?? '');
+    final assetController = TextEditingController(text: candidate?.assetValue ?? '');
+    final criminalDetailsController = TextEditingController(text: candidate?.criminalDetails ?? '');
+    final qualificationController = TextEditingController(text: candidate?.qualification ?? '');
 
-    String selectedSymbol = candidate?.symbol ?? _symbols.first;
+    String? selectedPartyId = candidate?.partyId;
+    if (selectedPartyId == null && _parties.isNotEmpty) {
+      selectedPartyId = _parties.first.partyId;
+    }
 
-    String selectedConstituency = candidate?.constituency ??(_selectedElection?.constituencies.first ?? 'General');
+    bool hasCriminalRecord = candidate?.criminalRecord ?? false;
+    String gender = candidate?.gender ?? 'Male';
+    String nominationStatus = candidate?.nominationFormStatus ?? 'Submitted';
 
     showDialog(
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(isEditing ? 'Edit Candidate' : 'Add Candidate'),
+          title: Text(isEditing ? 'Edit Candidate' : 'New Candidate Nomination'),
           content: SingleChildScrollView(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text('Basic Information', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Divider(),
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Name'),
+                  decoration: const InputDecoration(labelText: 'Full Legal Name'),
                 ),
                 const SizedBox(height: 12),
-
+                DropdownButtonFormField<String>(
+                  value: gender,
+                  items: ['Male', 'Female', 'Other'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                  onChanged: (v) => setDialogState(() => gender = v!),
+                  decoration: const InputDecoration(labelText: 'Gender'),
+                ),
+                const SizedBox(height: 12),
                 TextField(
-                  controller: partyController,
-                  decoration: const InputDecoration(labelText: 'Party'),
+                  controller: qualificationController,
+                  decoration: const InputDecoration(labelText: 'Educational Qualification'),
                 ),
-                const SizedBox(height: 12),
-
-                // DropdownButtonFormField<String>(
-                //   initialValue: selectedConstituency,
-                //   items: _selectedElection!.constituencies
-                //       .map((c) =>
-                //       DropdownMenuItem(value: c, child: Text(c)))
-                //       .toList(),
-                //   onChanged: (v) =>
-                //       setDialogState(() => selectedConstituency = v!),
-                //   decoration:
-                //   const InputDecoration(labelText: 'Constituency'),
-                // ),
-                // const SizedBox(height: 12),
-
-                Wrap(
-                  spacing: 8,
-                  children: _symbols.map((symbol) {
-                    final isSelected = symbol == selectedSymbol;
-                    return GestureDetector(
-                      onTap: () =>
-                          setDialogState(() => selectedSymbol = symbol),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : Colors.transparent),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(symbol,
-                            style:
-                            const TextStyle(fontSize: 22)),
-                      ),
-                    );
-                  }).toList(),
-                ),
-         const SizedBox(height: 12),
+                const SizedBox(height: 24),
                 
-                TextField(
-                  controller: manifestoController,
-                  maxLines: 3,
-                  decoration:
-                  const InputDecoration(labelText: 'Manifesto'),
+                const Text('Political Affiliation', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Divider(),
+                DropdownButtonFormField<String>(
+                  value: selectedPartyId,
+                  items: _parties.map((p) => DropdownMenuItem(value: p.partyId, child: Text(p.partyName))).toList(),
+                  onChanged: (v) => setDialogState(() => selectedPartyId = v),
+                  decoration: const InputDecoration(labelText: 'Select Party'),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: wardController,
+                  decoration: const InputDecoration(labelText: 'Ward Number (e.g. Ward 1)'),
+                ),
+                const SizedBox(height: 24),
+
+                const Text('Verification & Compliance', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Divider(),
+                TextField(
+                  controller: aadharController,
+                  decoration: const InputDecoration(labelText: 'Aadhar Number (Encrypted)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: panController,
+                  decoration: const InputDecoration(labelText: 'PAN Number'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: assetController,
+                  decoration: const InputDecoration(labelText: 'Total Assets Declared (₹)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(labelText: 'Phone Number'),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(labelText: 'Email Address'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text('Criminal Record?'),
+                  value: hasCriminalRecord,
+                  onChanged: (v) => setDialogState(() => hasCriminalRecord = v),
+                ),
+                if (hasCriminalRecord)
+                  TextField(
+                    controller: criminalDetailsController,
+                    decoration: const InputDecoration(labelText: 'Criminal Record Details'),
+                    maxLines: 2,
+                  ),
+                const SizedBox(height: 12),
+                if (isEditing)
+                  DropdownButtonFormField<String>(
+                    value: nominationStatus,
+                    items: ['Submitted', 'Accepted', 'Rejected']
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                    onChanged: (v) => setDialogState(() => nominationStatus = v!),
+                    decoration: const InputDecoration(labelText: 'Nomination Form Status'),
+                  ),
               ],
             ),
           ),
@@ -146,40 +177,40 @@ class _ManageCandidatesPageState extends State<ManageCandidatesPage> {
                 child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
-                if (nameController.text.isEmpty ||
-                    partyController.text.isEmpty) return;
+                if (nameController.text.isEmpty || selectedPartyId == null || _selectedElection == null) return;
+
+                final selectedParty = _parties.firstWhere((p) => p.partyId == selectedPartyId);
+
+                final data = {
+                  'candidateName': nameController.text,
+                  'partyId': selectedPartyId,
+                  'partySymbol': selectedParty.partySymbol,
+                  'ward': wardController.text,
+                  'gender': gender,
+                  'qualification': qualificationController.text,
+                  'aadharNumber': aadharController.text,
+                  'panNumber': panController.text,
+                  'assetValue': assetController.text,
+                  'phone': phoneController.text,
+                  'email': emailController.text,
+                  'criminalRecord': hasCriminalRecord,
+                  'criminalDetails': criminalDetailsController.text,
+                  'nominationFormStatus': nominationStatus,
+                  'nomineeStatus': nominationStatus == 'Accepted' ? 'Eligible' : (nominationStatus == 'Rejected' ? 'Ineligible' : 'Pending'),
+                  'status': nominationStatus == 'Accepted' ? 'Active' : 'Inactive',
+                  'voteCount': candidate?.voteCount ?? 0,
+                  'electionId': _selectedElection!.uid,
+                };
 
                 if (isEditing) {
-                  // FIX: Access candidate.id directly
-                  await _firestoreService.updateCandidate(
-                    candidate.id,
-                    {
-                      'name': nameController.text,
-                      'party': partyController.text,
-                      'symbol': selectedSymbol,
-                      'constituency': selectedConstituency,
-                      'manifesto': manifestoController.text,
-                    },
-                  );
+                  await _firestoreService.updateCandidate(candidate!.id, data);
                 } else {
-                  // FIX: Pass electionId as first argument, data as second
-                  await _firestoreService.addCandidate(
-                    _selectedElection!.id,
-                    {
-                      'name': nameController.text,
-                      'party': partyController.text,
-                      'symbol': selectedSymbol,
-                      'constituency': selectedConstituency,
-                      'manifesto': manifestoController.text,
-                      'voteCount': 0,
-                    },
-                  );
+                  await _firestoreService.addCandidate(_selectedElection!.uid, data);
                 }
 
-                Navigator.pop(context);
-                  
+                if (mounted) Navigator.pop(context);
               },
-              child: Text(isEditing ? 'Update' : 'Add'),
+              child: Text(isEditing ? 'Update' : 'Submit Nomination'),
             )
           ],
         ),
@@ -187,97 +218,154 @@ class _ManageCandidatesPageState extends State<ManageCandidatesPage> {
     );
   }
 
+  void _showScrutinyDialog(Candidate candidate) {
+    String selectedStatus = candidate.nominationFormStatus ?? 'Submitted';
+    final reasonController = TextEditingController(text: candidate.disqualificationReason ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Nomination Scrutiny: ${candidate.candidateName}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Review eligibility based on Municipal Corporation regulations.'),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: selectedStatus,
+                items: ['Submitted', 'Accepted', 'Rejected']
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                onChanged: (v) => setDialogState(() => selectedStatus = v!),
+                decoration: const InputDecoration(labelText: 'Final Decision'),
+              ),
+              if (selectedStatus == 'Rejected')
+                TextField(
+                  controller: reasonController,
+                  decoration: const InputDecoration(labelText: 'Reason for Disqualification'),
+                  maxLines: 2,
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                await _firestoreService.markCandidateEligible(
+                  candidate.id, 
+                  selectedStatus == 'Accepted',
+                  reason: selectedStatus == 'Rejected' ? reasonController.text : null
+                );
+                if (mounted) Navigator.pop(context);
+              },
+              child: const Text('Save Decision'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteCandidate(String id) async {
-    debugPrint('\x1B[32m'
-    'lib/admin/manage_candidates.dart: _deleteCandidate() executed'
-    '\x1B[0m');
-    await _firestoreService.deleteCandidate(id);
-      
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Candidate'),
+        content: const Text('Are you sure you want to remove this candidate? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _firestoreService.deleteCandidate(id);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Candidates'),
+        title: const Text('Manage District Candidates'),
         backgroundColor: AppColors.primaryDark,
+        foregroundColor: Colors.white,
       ),
-      floatingActionButton: _selectedElection == null
+      floatingActionButton: _selectedElection == null || _parties.isEmpty
           ? null
-          : FloatingActionButton(
-        onPressed: () => _showAddEditDialog(),
-        child: const Icon(Icons.add),
-      ),
-      body: Column(
+          : FloatingActionButton.extended(
+              onPressed: () => _showAddEditDialog(),
+              icon: const Icon(Icons.add),
+              label: const Text('Add Candidate'),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
             child: DropdownButtonFormField<Election>(
-              initialValue: _selectedElection,
-              items: _elections
-                  .map((e) => DropdownMenuItem(
-                value: e,
-                child: Text(e.title),
-              ))
-                  .toList(),
-              onChanged: (e) {
-                setState(() => _selectedElection = e);
-                  
-              },
-              decoration:
-              const InputDecoration(labelText: 'Election'),
+              value: _selectedElection,
+              items: _elections.map((e) => DropdownMenuItem(value: e, child: Text(e.title))).toList(),
+              onChanged: (e) => setState(() => _selectedElection = e),
+              decoration: const InputDecoration(labelText: 'Select Election'),
             ),
           ),
           Expanded(
             child: _selectedElection == null
-                ? const Center(child: Text("Select an election"))
+                ? const Center(child: Text("Select an election to manage candidates"))
                 : StreamBuilder<List<Candidate>>(
-                    stream: _firestoreService
-                        .getCandidatesStream(_selectedElection!.id),
+                    stream: _firestoreService.getCandidatesStream(_selectedElection!.uid),
                     builder: (context, snapshot) {
-
-                      // 🔴 ERROR
-                      if (snapshot.hasError) {
-                        return const Center(child: Text('Error loading candidates'));
-                      }
-
-                      // ⏳ LOADING
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
+                      if (snapshot.hasError) return const Center(child: Text('Error loading candidates'));
+                      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
                       final candidates = snapshot.data!;
+                      if (candidates.isEmpty) return const Center(child: Text('No nominations recorded for this election.'));
 
-                      // 📭 EMPTY
-                      if (candidates.isEmpty) {
-                        return const Center(child: Text('No Candidates'));
-                      }
-
-                      // ✅ THIS IS WHERE YOUR CODE GOES
                       return ListView.builder(
+                        padding: const EdgeInsets.all(16),
                         itemCount: candidates.length,
                         itemBuilder: (_, index) {
                           final c = candidates[index];
+                          final party = _parties.firstWhere(
+                            (p) => p.partyId == c.partyId, 
+                            orElse: () => Party(partyId: '', partyName: 'Independent', partyShortCode: 'IND', partyColor: '#757575', partySymbol: '', createdDate: DateTime.now(), updatedDate: DateTime.now(), status: 'Active')
+                          );
 
-                          return ListTile(
-                            leading: Text(
-                              c.symbol,
-                              style: const TextStyle(fontSize: 24),
-                            ),
-                            title: Text(c.name),
-                            subtitle: Text(c.party),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  _showAddEditDialog(c);
-                                } else {
-                                  _deleteCandidate(c.id);
-                                }
-                              },
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(value: 'edit', child: Text('Edit')),
-                                PopupMenuItem(value: 'delete', child: Text('Delete')),
-                              ],
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Color(int.parse(party.partyColor.replaceAll('#', '0xFF'))),
+                                child: Text(party.partyShortCode.isNotEmpty ? party.partyShortCode[0] : '?', style: const TextStyle(color: Colors.white)),
+                              ),
+                              title: Text(c.candidateName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('Party: ${party.partyName} | Ward: ${c.ward}\nNomination: ${c.nominationFormStatus}'),
+                              isThreeLine: true,
+                              trailing: PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  if (value == 'edit') {
+                                    _showAddEditDialog(c);
+                                  } else if (value == 'scrutiny') {
+                                    _showScrutinyDialog(c);
+                                  } else {
+                                    _deleteCandidate(c.id);
+                                  }
+                                },
+                                itemBuilder: (_) => [
+                                  const PopupMenuItem(value: 'edit', child: Text('Edit Candidate')),
+                                  const PopupMenuItem(value: 'scrutiny', child: Text('Scrutiny Workflow')),
+                                  const PopupMenuItem(value: 'delete', child: Text('Remove Nomination', style: TextStyle(color: AppColors.error))),
+                                ],
+                              ),
                             ),
                           );
                         },
@@ -289,6 +377,7 @@ class _ManageCandidatesPageState extends State<ManageCandidatesPage> {
       ),
     );
   }
+
   void debug() {
     debugPrint('\x1B[34m'
         'lib/admin/manage_candidates.dart: executed'

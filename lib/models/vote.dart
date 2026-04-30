@@ -21,14 +21,14 @@ class Vote {
     required this.voterId,
     required this.electionId,
     required this.candidateId,
+    required this.voterHash,
+    required this.voteHash,
+    required this.transactionHash,
     required this.timestamp,
-    this.voterHash,
-    this.voteHash,
-    this.transactionHash,
-    this.blockHash,
-    this.previousBlockHash,
-    this.blockNumber,
-    this.accountAddress,
+    required this.blockHash,
+    required this.previousBlockHash,
+    required this.blockNumber,
+    required this.accountAddress,
   });
 
   factory Vote.fromFirestore(DocumentSnapshot doc) {
@@ -42,12 +42,7 @@ class Vote {
       voterHash: data['voterHash'],
       voteHash: data['voteHash'],
       transactionHash: data['transactionHash'],
-
-      timestamp: data['timestamp'] != null
-          ? (data['timestamp'] as Timestamp).toDate()
-          : DateTime.now(),
-
-      // 🔥 ADD THESE (You missed these)
+      timestamp: data['timestamp'] != null ? (data['timestamp'] as Timestamp).toDate() : DateTime.now(),
       blockHash: data['blockHash'],
       previousBlockHash: data['previousBlockHash'],
       blockNumber: data['blockNumber'],
@@ -57,6 +52,7 @@ class Vote {
 
   Map<String, dynamic> toMap() {
     return {
+      
       'voterUid': voterId,
       'electionId': electionId,
       'candidateId': candidateId,

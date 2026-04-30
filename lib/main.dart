@@ -12,6 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'services/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models/app_user.dart';
+import 'services/biometric_service.dart';
+import 'dart:io';
+
 
 
 void main() async {
@@ -93,25 +96,40 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen> 
+  with WidgetsBindingObserver{
 
     final FirebaseFirestore _db = FirebaseFirestore.instance;
     final AuthService _authService = AuthService();
-      AppUser? _currentUser;
+    final BiometricService _biometricService = BiometricService();
+    AppUser? _currentUser;
+
+
+    bool _isAuthenticating = false; // 🔥 prevent multiple calls
+    bool _isAuthenticated = false;
+    bool _isDialogOpen = false;
     
 
 
   @override
   void initState() {
     super.initState();
+    // WidgetsBinding.instance.addObserver(this); // 👈 ADD THIS
+    // _checkBiometric(); // first time check
     _initializeAndNavigate();
     debug();
   }
+
+
 
   Future<void> _initializeAndNavigate() async {
     print('\x1B[32m'
         'lib/main.dart: _initializeAndNavigate() executed'
         '\x1B[0m');
+
+
+
+      
 
     try {
       final blockchainService = BlockchainService();
@@ -163,6 +181,69 @@ _authService.setCurrentUser(user); // 🔥 THIS IS THE FIX
       );
     }
   }
+
+    Future<void> _checkBiometric() async {
+    if (_isAuthenticating || _isAuthenticated) return; // 🔥 IMPORTANT
+
+    _isAuthenticating = true;
+
+    bool success = await _biometricService.authenticate();
+
+    _isAuthenticating = false;
+
+
+      // ✅ ADD THIS BLOCK
+    if (success) {
+      _isAuthenticated = true; // 🔥 THIS WAS MISSING
+      print("✅ Auth success");
+
+      // 🔥 CLOSE DIALOG IF OPEN
+      if (_isDialogOpen && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        _isDialogOpen = false;
+      }
+
+      return;
+    }
+
+
+    if (!success) {
+      if (!mounted) return;
+
+      _isDialogOpen = true;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false, // ❌ cannot close
+        builder: (_) => AlertDialog(
+          title: const Text("Authentication Required"),
+          content: const Text("Please verify your identity to continue."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _isDialogOpen = false;
+                // 🔥 Add delay here
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  _checkBiometric(); // 🔁 retry again
+                });
+                
+              },
+              child: const Text("Retry"),
+            ),
+            TextButton(
+              onPressed: () {
+                exit(0); // 🔥 closes app completely
+              },
+              child: const Text("Exit"),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {

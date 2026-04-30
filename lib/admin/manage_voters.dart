@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../services/firestore_service.dart';
-import '../models/voter_profile.dart';
+import '../models/app_user.dart';
 
 class ManageVotersPage extends StatefulWidget {
   const ManageVotersPage({super.key});
@@ -20,31 +20,7 @@ class _ManageVotersPageState extends State<ManageVotersPage> {
     debug();
   }
 
-  Future<void> _toggleEligibility(VoterProfile voter) async {
-    debugPrint('\x1B[32m'
-    'lib/admin/manage_voters.dart: _toggleEligibility() executed'
-    '\x1B[0m');
-    await _firestoreService.updateVoterEligibility(
-      voter.id,
-      !voter.isEligible,
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          voter.isEligible
-              ? 'Voter marked as ineligible'
-              : 'Voter marked as eligible',
-        ),
-        backgroundColor: AppColors.success,
-      ),
-    );
-  }
-
-  void _showVoterDetails(VoterProfile voter) {
-    debugPrint('\x1B[32m'
-    'lib/admin/manage_voters.dart: _showVoterDetails() executed'
-    '\x1B[0m');
+  void _showVoterDetails(AppUser voter) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -74,14 +50,8 @@ class _ManageVotersPageState extends State<ManageVotersPage> {
                   radius: 40,
                   backgroundColor: AppColors.primary,
                   child: Text(
-                    voter.name.isNotEmpty
-                        ? voter.name[0].toUpperCase()
-                        : 'V',
-                    style: const TextStyle(
-                      fontSize: 32,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    voter.name.isNotEmpty ? voter.name[0].toUpperCase() : 'V',
+                    style: const TextStyle(fontSize: 32, color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -90,29 +60,7 @@ class _ManageVotersPageState extends State<ManageVotersPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(voter.name, style: AppTextStyles.heading2),
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: voter.isEligible
-                              ? AppColors.success.withOpacity(0.1)
-                              : AppColors.error.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          voter.isEligible
-                              ? 'ELIGIBLE'
-                              : 'INELIGIBLE',
-                          style: TextStyle(
-                            color: voter.isEligible
-                                ? AppColors.success
-                                : AppColors.error,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
+                      Text("Voter ID: ${voter.voterId}", style: AppTextStyles.body2),
                     ],
                   ),
                 ),
@@ -120,42 +68,33 @@ class _ManageVotersPageState extends State<ManageVotersPage> {
             ),
             const SizedBox(height: 24),
             const Divider(),
-            _buildDetailRow(Icons.email_outlined, 'Email', voter.email),
+            _buildDetailRow(Icons.info_outline, 'Verification Status', voter.verificationStatus ?? 'Pending'),
+            _buildDetailRow(Icons.location_on_outlined, 'Ward', voter.ward),
+            _buildDetailRow(Icons.credit_card_outlined, 'Voter Slip No.', voter.voterSlipNumber ?? 'Not Assigned'),
+            _buildDetailRow(Icons.calendar_today_outlined, 'DOB', voter.dateOfBirth),
             _buildDetailRow(Icons.phone_outlined, 'Phone', voter.phone),
-            _buildDetailRow(Icons.location_on_outlined, 'Constituency',
-                voter.constituency),
-            _buildDetailRow(
-              Icons.calendar_today_outlined,
-              'Registered',
-              _formatDate(voter.registeredAt),
-            ),
             const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _toggleEligibility(voter);
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await _firestoreService.updateVoterVerification(voter.id, 'Verified', 'admin_uid');
+                      if (mounted) Navigator.pop(context);
                     },
-                    icon: Icon(
-                      voter.isEligible
-                          ? Icons.block
-                          : Icons.check_circle,
-                      color: voter.isEligible
-                          ? AppColors.error
-                          : AppColors.success,
-                    ),
-                    label: Text(
-                      voter.isEligible
-                          ? 'Mark Ineligible'
-                          : 'Mark Eligible',
-                      style: TextStyle(
-                        color: voter.isEligible
-                            ? AppColors.error
-                            : AppColors.success,
-                      ),
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.success, foregroundColor: Colors.white),
+                    child: const Text('Verify Voter'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      await _firestoreService.updateVoterVerification(voter.id, 'Rejected', 'admin_uid');
+                      if (mounted) Navigator.pop(context);
+                    },
+                    style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+                    child: const Text('Reject Verification'),
                   ),
                 ),
               ],
@@ -166,10 +105,9 @@ class _ManageVotersPageState extends State<ManageVotersPage> {
     );
   }
 
-  Widget _buildDetailRow(
-      IconData icon, String label, String value) {
+  Widget _buildDetailRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           Icon(icon, color: AppColors.textSecondary, size: 20),
@@ -178,7 +116,6 @@ class _ManageVotersPageState extends State<ManageVotersPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: AppTextStyles.caption),
-              const SizedBox(height: 2),
               Text(value, style: AppTextStyles.body1),
             ],
           ),
@@ -187,208 +124,59 @@ class _ManageVotersPageState extends State<ManageVotersPage> {
     );
   }
 
-  // Widget _buildFilterChip(String label, int count) {
-  //   return Container(
-  //     padding:
-  //     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(20),
-  //       border: Border.all(color: AppColors.divider),
-  //     ),
-  //     child: Text(
-  //       '$label ($count)',
-  //       style: const TextStyle(fontSize: 12),
-  //     ),
-  //   );
-  // }
-
-  Widget _buildVoterCard(VoterProfile voter) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-        BorderRadius.circular(AppDimens.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        borderRadius:
-        BorderRadius.circular(AppDimens.borderRadius),
-        onTap: () => _showVoterDetails(voter),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor:
-                AppColors.primary.withOpacity(0.1),
-                child: Text(
-                  voter.name.isNotEmpty
-                      ? voter.name[0].toUpperCase()
-                      : 'V',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      voter.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(voter.email,
-                        style: AppTextStyles.caption),
-                    Text(voter.constituency,
-                        style: AppTextStyles.caption),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: voter.isEligible
-                      ? AppColors.success.withOpacity(0.1)
-                      : AppColors.error.withOpacity(0.1),
-                  borderRadius:
-                  BorderRadius.circular(4),
-                ),
-                child: Text(
-                  voter.isEligible
-                      ? 'Eligible'
-                      : 'Ineligible',
-                  style: TextStyle(
-                    color: voter.isEligible
-                        ? AppColors.success
-                        : AppColors.error,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    final months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'
-    ];
-    return '${date.day} ${months[date.month - 1]}, ${date.year}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Manage Voters'),
+        title: const Text('Manage Voters (District Roll)'),
         backgroundColor: AppColors.primaryDark,
         foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
-          Container(
-            padding:
-            const EdgeInsets.all(AppDimens.paddingMedium),
+          Padding(
+            padding: const EdgeInsets.all(16),
             child: TextField(
-              onChanged: (value) =>
-                  setState(() => _searchQuery = value),
+              onChanged: (v) => setState(() => _searchQuery = v),
               decoration: InputDecoration(
-                hintText: 'Search voters...',
+                hintText: 'Search by Name or Voter ID',
                 prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(
-                      AppDimens.borderRadius),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
                 fillColor: Colors.white,
               ),
             ),
           ),
           Expanded(
-            child: StreamBuilder<List<VoterProfile>>(
-              stream:
-              _firestoreService.getAllVotersStream(),
+            child: StreamBuilder<List<AppUser>>(
+              stream: _firestoreService.getAllVotersStream(),
               builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text('No voters in district roll.'));
 
-                // 🔴 1. Error state
-                if (snapshot.hasError) {
-                  return const Center(
-                    child: Text('Something went wrong'),
-                  );
-                }
-
-                // ⏳ 2. Loading state
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                if (!snapshot.hasData) {
-                  return const Center(
-                      child: CircularProgressIndicator());
-                }
-
-                final voters = snapshot.data!;
-
-                final filtered = voters.where((voter) {
-                  if (_searchQuery.isEmpty) return true;
-                  return voter.name
-                      .toLowerCase()
-                      .contains(
-                      _searchQuery.toLowerCase()) ||
-                      voter.email
-                          .toLowerCase()
-                          .contains(
-                          _searchQuery.toLowerCase()) ||
-                      voter.phone
-                          .contains(_searchQuery);
-                }).toList();
-
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.search_off, size: 60),
-                        SizedBox(height: 10),
-                        Text('No voters found'),
-                      ],
-                    ),
-                  );
-                }
+                final voters = snapshot.data!.where((v) => 
+                  v.name.toLowerCase().contains(_searchQuery.toLowerCase()) || 
+                  v.voterId.toLowerCase().contains(_searchQuery.toLowerCase())
+                ).toList();
 
                 return ListView.builder(
-                  padding: const EdgeInsets.all(
-                      AppDimens.paddingMedium),
-                  itemCount: filtered.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: voters.length,
                   itemBuilder: (context, index) {
-                    return _buildVoterCard(
-                        filtered[index]);
+                    final v = voters[index];
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(child: Text(v.name[0])),
+                        title: Text(v.name),
+                        subtitle: Text('Ward: ${v.ward} | Status: ${v.verificationStatus ?? "Pending"}'),
+                        trailing: Icon(
+                          v.verificationStatus == 'Verified' ? Icons.verified : Icons.pending_actions,
+                          color: v.verificationStatus == 'Verified' ? AppColors.success : AppColors.warning,
+                        ),
+                        onTap: () => _showVoterDetails(v),
+                      ),
+                    );
                   },
                 );
               },
@@ -398,9 +186,6 @@ class _ManageVotersPageState extends State<ManageVotersPage> {
       ),
     );
   }
-  void debug() {
-    debugPrint('\x1B[34m'
-        'lib/admin/manage_elections.dart: executed'
-        '\x1B[0m');
-  }
+
+  void debug() => debugPrint('\x1B[34mManageVotersPage executed\x1B[0m');
 }

@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../utils/validators.dart';
 import '../services/auth_service.dart';
-import 'registration.dart';
 import 'otp.dart';
 import 'home.dart';
 import '../admin/admin_login.dart';
 import '../services/biometric_service.dart';
 import 'dart:io';
-import '../user/registration_new.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,82 +15,60 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage>
-  with WidgetsBindingObserver {
-
-
-
+class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _voterIdController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
   final BiometricService _biometricService = BiometricService();
-  
 
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _isAuthenticating = false; // 🔥 prevent multiple calls
+  bool _isAuthenticating = false;
   bool _isAuthenticated = false;
   bool _isDialogOpen = false;
-  
-
 
   @override
   void initState() {
     super.initState();
-      WidgetsBinding.instance.addObserver(this); // 👈 ADD THIS
-      _checkBiometric(); // first time check
-    debug();   // 👈 will run when this screen is created
+    WidgetsBinding.instance.addObserver(this);
+    _checkBiometric();
+    debug();
   }
-
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && !_isAuthenticated) {
-    _checkBiometric(); // only if NOT authenticated
+      _checkBiometric();
     }
 
     if (state == AppLifecycleState.paused) {
-      _isAuthenticated = false; // 🔒 lock again
+      _isAuthenticated = false;
     }
-
   }
 
-
   Future<void> _checkBiometric() async {
-    if (_isAuthenticating || _isAuthenticated) return; // 🔥 IMPORTANT
+    if (_isAuthenticating || _isAuthenticated) return;
 
     _isAuthenticating = true;
-
     bool success = await _biometricService.authenticate();
-
     _isAuthenticating = false;
 
-
-      // ✅ ADD THIS BLOCK
     if (success) {
-      _isAuthenticated = true; // 🔥 THIS WAS MISSING
-      print("✅ Auth success");
-
-      // 🔥 CLOSE DIALOG IF OPEN
+      _isAuthenticated = true;
       if (_isDialogOpen && mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         _isDialogOpen = false;
       }
-
       return;
     }
 
-
-    if (!success) {
-      if (!mounted) return;
-
+    if (!success && mounted) {
       _isDialogOpen = true;
-
       showDialog(
         context: context,
-        barrierDismissible: false, // ❌ cannot close
+        barrierDismissible: false,
         builder: (_) => AlertDialog(
           title: const Text("Authentication Required"),
           content: const Text("Please verify your identity to continue."),
@@ -101,18 +77,14 @@ class _LoginPageState extends State<LoginPage>
               onPressed: () {
                 Navigator.pop(context);
                 _isDialogOpen = false;
-                // 🔥 Add delay here
                 Future.delayed(const Duration(milliseconds: 300), () {
-                  _checkBiometric(); // 🔁 retry again
+                  _checkBiometric();
                 });
-                
               },
               child: const Text("Retry"),
             ),
             TextButton(
-              onPressed: () {
-                exit(0); // 🔥 closes app completely
-              },
+              onPressed: () => exit(0),
               child: const Text("Exit"),
             ),
           ],
@@ -121,15 +93,7 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
-
   Future<void> _login() async {
-
-
-    debugPrint('\x1B[32m'
-    'lib/user/login.dart: _login() executed'
-    '\x1B[0m');
-
-
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -141,32 +105,18 @@ class _LoginPageState extends State<LoginPage>
         password: _passwordController.text,
       );
 
-      if (result.success) {
-        _authService.debugCurrentUser();
-      }
-
       if (!mounted) return;
 
       if (result.success) {
-
-        _authService.saveLogin(result.user!.id);
-
-        Navigator.pushReplacement(
+        await _authService.saveLogin(result.user!.id);
+        // Requirement: Simplified Authentication: OTP-based login
+        // Redirecting to OTP after initial credential check
+        Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => HomePage()
-            ),
+            builder: (_) => OTPVerificationPage(phone: result.user!.phone),
+          ),
         );
-      } else if (result.error == 'Phone not verified') {
-        final user = _authService.currentUser;
-        if (user != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => OTPVerificationPage(phone: user.phone),
-            ),
-          );
-        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -189,7 +139,6 @@ class _LoginPageState extends State<LoginPage>
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -207,41 +156,22 @@ class _LoginPageState extends State<LoginPage>
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(
-                    Icons.how_to_vote,
-                    size: 60,
-                    color: Colors.white,
-                  ),
+                  child: const Icon(Icons.how_to_vote, size: 60, color: Colors.white),
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                AppStrings.appName,
-                style: AppTextStyles.heading1,
-                textAlign: TextAlign.center,
-              ),
+              const Text(AppStrings.appName, style: AppTextStyles.heading1, textAlign: TextAlign.center),
               const SizedBox(height: 8),
-              const Text(
-                AppStrings.tagline,
-                style: AppTextStyles.body2,
-                textAlign: TextAlign.center,
-              ),
+              const Text(AppStrings.tagline, style: AppTextStyles.body2, textAlign: TextAlign.center),
               const SizedBox(height: 48),
-              const Text(
-                AppStrings.loginTitle,
-                style: AppTextStyles.heading2,
-              ),
+              const Text(AppStrings.loginTitle, style: AppTextStyles.heading2),
               const SizedBox(height: 8),
-              const Text(
-                AppStrings.loginSubtitle,
-                style: AppTextStyles.body2,
-              ),
+              const Text("District-Level Election Login", style: AppTextStyles.body2),
               const SizedBox(height: 32),
               Form(
                 key: _formKey,
                 child: Column(
                   children: [
-
                     TextFormField(
                       controller: _voterIdController,
                       validator: Validators.validateVoterID,
@@ -249,18 +179,14 @@ class _LoginPageState extends State<LoginPage>
                       decoration: InputDecoration(
                         labelText: 'Voter ID Number',
                         prefixIcon: const Icon(Icons.credit_card_outlined),
-                        hintText: 'XXXX XXXX XXXX',
+                        hintText: 'Enter your Voter ID',
                         counterText: '',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppDimens.borderRadius),
-                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppDimens.borderRadius)),
                         filled: true,
                         fillColor: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 16),
-
-
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -268,16 +194,12 @@ class _LoginPageState extends State<LoginPage>
                       decoration: InputDecoration(
                         labelText: 'Email',
                         prefixIcon: const Icon(Icons.email_outlined),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppDimens.borderRadius),
-                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppDimens.borderRadius)),
                         filled: true,
                         fillColor: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 16),
-
-
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -289,21 +211,9 @@ class _LoginPageState extends State<LoginPage>
                           icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppDimens.borderRadius),
-                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppDimens.borderRadius)),
                         filled: true,
                         fillColor: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {},
-                        child: const Text('Forgot Password?'),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -315,9 +225,7 @@ class _LoginPageState extends State<LoginPage>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppDimens.borderRadius),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.borderRadius)),
                         ),
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
@@ -328,26 +236,11 @@ class _LoginPageState extends State<LoginPage>
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Don't have an account? "),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => RegistrationPageNew()),
-                      );
-                    },
-                    child: const Text(
-                      'Register',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+              const Center(
+                child: Text(
+                  "Registration is managed by the Election Commission.",
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                ),
               ),
               const SizedBox(height: 16),
               TextButton(
@@ -357,10 +250,7 @@ class _LoginPageState extends State<LoginPage>
                     MaterialPageRoute(builder: (_) => const AdminLoginPage()),
                   );
                 },
-                child: const Text(
-                  'Admin Login',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
+                child: const Text('Admin Login', style: TextStyle(color: AppColors.textSecondary)),
               ),
             ],
           ),
@@ -370,18 +260,15 @@ class _LoginPageState extends State<LoginPage>
   }
 
   void debug() {
-    debugPrint('\x1B[34m'
-        'lib/user/login.dart: executed'
-        '\x1B[0m');
+    debugPrint('\x1B[34m' 'lib/user/login.dart: executed' '\x1B[0m');
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // 👈 ADD THIS
+    WidgetsBinding.instance.removeObserver(this);
     _voterIdController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
-
 }

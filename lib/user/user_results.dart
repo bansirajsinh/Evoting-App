@@ -5,14 +5,14 @@ import '../services/blockchain_service.dart';
 import '../models/election.dart';
 import '../models/candidate.dart';
 
-class ResultsPage extends StatefulWidget {
-  const ResultsPage({super.key});
+class UserResultsPage extends StatefulWidget {
+  const UserResultsPage({super.key});
 
   @override
-  State<ResultsPage> createState() => _ResultsPageState();
+  State<UserResultsPage> createState() => _UserResultsPageState();
 }
 
-class _ResultsPageState extends State<ResultsPage> {
+class _UserResultsPageState extends State<UserResultsPage> {
   final _firestoreService = FirestoreService();
   final _blockchainService = BlockchainService();
 
@@ -91,10 +91,10 @@ class _ResultsPageState extends State<ResultsPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('District Election Results'),
-        backgroundColor: AppColors.primaryDark,
+        title: const Text('Election Results'),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        actions: [IconButton(icon: const Icon(Icons.verified_user), onPressed: _verifyBlockchain)],
+        actions: [IconButton(icon: const Icon(Icons.verified), onPressed: _verifyBlockchain)],
       ),
       body: StreamBuilder<List<Election>>(
         stream: _firestoreService.getElectionsStream(),
@@ -158,5 +158,5 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
-  void debug() => debugPrint('\x1B[34mResultsPage executed\x1B[0m');
+  void debug() => debugPrint('\x1B[34mUserResultsPage executed\x1B[0m');
 }
