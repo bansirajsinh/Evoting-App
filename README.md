@@ -516,28 +516,6 @@ Counts total votes.
 
 ---
 
-
-
-
-# 📷 Screenshots
-
-Add your screenshots here:
-
-```text
-screenshots/
-├── login.png
-├── register.png
-├── dashboard.png
-├── election.png
-├── candidate.png
-├── voting.png
-├── success.png
-├── results.png
-└── admin-dashboard.png
-```
-
----
-
 # 🤝 Contributing
 
 Contributions, suggestions, and improvements are welcome.
