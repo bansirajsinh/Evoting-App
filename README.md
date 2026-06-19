@@ -516,36 +516,8 @@ Counts total votes.
 
 ---
 
-# 👨‍💻 Team Members
 
-| Name | Role |
-|--------|--------|
-| Gohil Bansirajsinh | Blockchain Specialist |
-| Gohil Satyajeetsinh | Software Developer |
-| Vala Priyarajsinh | Backend & Database Engineer |
-| Vaja Tushar | UI/UX & Testing Engineer |
 
----
-
-# 🎓 Academic Information
-
-**Project Title:** E-Voting System Using Blockchain
-
-**Department:** Information Technology
-
-**College:** Shantilal Shah Engineering College
-
-**University:** Gujarat Technological University (GTU)
-
-**Subject:** Design Engineering 1B
-
-**Subject Code:** 3140005
-
-**Team ID:** 723566
-
-**Project Type:** Academic Final Year Project
-
----
 
 # 📷 Screenshots
 
